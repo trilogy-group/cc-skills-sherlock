@@ -80,6 +80,7 @@ Sherlock will confirm what changed (e.g., "Rejected 4 beads, created 3 new beads
 
 - [beads CLI](https://github.com/gastownhall/beads) (`brew install beads`) — auto-installed on first run
 - Claude Code with Opus model (conductor) and Haiku (researchers)
+- [gogcli](https://gogcli.sh/) (`brew install gogcli`) — optional, enables Google Workspace export (Docs, Sheets, Drive)
 
 ## Permissions
 
@@ -103,6 +104,10 @@ defaults:
 models:
   conductor: opus
   researcher: haiku
+google:
+  account: ""              # Google account for gogcli (e.g. you@gmail.com)
+  auto_push: false         # auto-export report to Google Docs on completion
+  export_format: docs      # docs | sheets
 ```
 
 ## Plugin Structure

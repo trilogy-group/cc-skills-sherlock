@@ -29,6 +29,46 @@ fi
 
 echo -e "${GREEN}bd: $(which bd)${NC}"
 
+# --- Check and install gogcli ---
+if ! command -v gog &>/dev/null; then
+    echo -e "${YELLOW}gogcli (gog) not found. Installing...${NC}"
+    if command -v brew &>/dev/null; then
+        brew install gogcli 2>&1 && echo -e "${GREEN}gogcli installed via Homebrew.${NC}"
+    else
+        echo -e "${RED}Cannot install gogcli. Install manually: brew install gogcli${NC}"
+        echo -e "${YELLOW}Sherlock will work without gogcli, but Google Workspace features will be unavailable.${NC}"
+    fi
+fi
+
+if command -v gog &>/dev/null; then
+    echo -e "${GREEN}gog: $(which gog)${NC}"
+
+    # Check if any account is configured
+    if ! gog auth list 2>/dev/null | grep -q '@'; then
+        echo ""
+        echo -e "${YELLOW}gogcli is installed but no Google account is configured.${NC}"
+        echo -e "${YELLOW}To set up Google Workspace access:${NC}"
+        echo ""
+        echo -e "  1. Create OAuth credentials in Google Cloud Console"
+        echo -e "     (APIs & Services → Credentials → OAuth 2.0 → Desktop app)"
+        echo ""
+        echo -e "  2. Download the client_secret JSON and run:"
+        echo -e "     ${GREEN}gog auth credentials ~/Downloads/client_secret_*.json${NC}"
+        echo ""
+        echo -e "  3. Add your Google account:"
+        echo -e "     ${GREEN}gog auth add you@gmail.com${NC}"
+        echo ""
+        echo -e "  4. Optionally set a default account:"
+        echo -e "     ${GREEN}export GOG_ACCOUNT=you@gmail.com${NC}"
+        echo ""
+        echo -e "${YELLOW}You can do this later — Sherlock will work without it.${NC}"
+    else
+        echo -e "${GREEN}gogcli: authenticated${NC}"
+    fi
+else
+    echo -e "${YELLOW}gog: not installed (Google Workspace features disabled)${NC}"
+fi
+
 # --- Create directories ---
 mkdir -p "${SHERLOCK_HOME}/sessions"
 echo -e "${GREEN}Sessions: ${SHERLOCK_HOME}/sessions/${NC}"
@@ -61,8 +101,10 @@ report:
   include_methodology: true
   include_raw_data: true
 
-google_docs:
+google:
+  account: ""
   auto_push: false
+  export_format: docs
 YAML
     echo -e "${GREEN}Config: ${SHERLOCK_HOME}/config.yaml${NC}"
 fi

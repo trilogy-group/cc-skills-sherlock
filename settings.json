@@ -11,7 +11,9 @@
       "Bash(cd *)",
       "Bash(which *)",
       "Bash(brew install beads*)",
-      "Bash(npm install -g @beads/bd*)"
+      "Bash(npm install -g @beads/bd*)",
+      "Bash(gog *)",
+      "Bash(brew install gogcli*)"
     ]
   }
 }

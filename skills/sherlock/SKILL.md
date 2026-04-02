@@ -67,7 +67,54 @@ brew install beads 2>&1 || npm install -g @beads/bd 2>&1
 
 If that fails, tell the user and stop.
 
-### 0c. Session Directory
+### 0c. gogcli (Google Workspace)
+
+```bash
+which gog || echo "GOG_NOT_FOUND"
+```
+
+If not found, offer to install:
+
+```
+⚠ gogcli (gog) not found. It enables Google Workspace access
+  (export to Docs/Sheets, search Drive, send via Gmail).
+
+  Install now? [y/n]
+```
+
+If yes:
+```bash
+brew install gogcli 2>&1
+```
+
+If install fails or user says no: "Google Workspace features will be unavailable. Sherlock will still work for web research."
+
+If installed, check for authenticated accounts:
+```bash
+gog auth list 2>&1
+```
+
+If no accounts configured, walk the user through setup:
+
+```
+gogcli is installed but no Google account is linked.
+
+To set up:
+  1. Create OAuth credentials in Google Cloud Console
+     (APIs & Services → Credentials → OAuth 2.0 → Desktop app)
+
+  2. Download the client_secret JSON and run:
+     gog auth credentials ~/Downloads/client_secret_*.json
+
+  3. Add your Google account:
+     gog auth add you@gmail.com
+
+Set up now, or skip? (You can do this later with: gog auth add <email>)
+```
+
+If the user wants to set up now, guide them through each step interactively. Store the configured account in `~/.sherlock/config.yaml` under `google.account`.
+
+### 0d. Session Directory
 
 ```bash
 mkdir -p "$HOME/.sherlock/sessions"
@@ -83,7 +130,7 @@ The user invoked: `/sherlock $ARGUMENTS`
 2. **`--resume [id]`** → Resume session. See Conductor Protocol § Resuming.
 3. **`--report <id>`** → Regenerate report from existing beads. Stop.
 4. **`--delete <id>`** → Confirm, then delete. Stop.
-5. **`--export <id> --format <gdoc|sheets>`** → Export via MCP. Stop.
+5. **`--export <id> --format <docs|sheets>`** → Export to Google Workspace via gogcli. Requires gogcli to be installed and authenticated. Stop.
 6. **Anything else** → New research session. Proceed to Step 2.
 
 ---
@@ -133,6 +180,24 @@ Type to steer, or: "summary" | "pause" | "report" | "quit"
 - **Conductor (you):** Opus — planning, synthesis, verification, user interaction
 - **Researchers:** Haiku — high-volume leaf research via `Agent(model: "haiku")`
 - **Synthesis beads:** You handle directly (Opus reasoning)
+
+---
+
+## Available Tools
+
+### Core (always available)
+- **WebSearch** — Web search queries
+- **WebFetch** — Fetch and read web pages
+- **beads CLI (`bd`)** — Research task graph management
+
+### Google Workspace (requires gogcli)
+- **`gog docs`** — Create/read/update Google Docs
+- **`gog sheets`** — Create/read/update Google Sheets
+- **`gog drive`** — Search and manage Google Drive files
+- **`gog gmail`** — Search and send email
+- **`gog calendar`** — Read calendar events
+
+Check availability: `which gog && gog auth list`. If gogcli is not configured, skip Google Workspace features gracefully — never error on missing gogcli.
 
 ---
 

@@ -230,6 +230,37 @@ EOF
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
+### Step 5: Google Workspace Export (optional)
+
+If the user says yes to "Push to Google Docs?" (or `google.auto_push` is true in config), and gogcli is available:
+
+```bash
+# Check gogcli is available and authenticated
+which gog && gog auth list
+```
+
+If gogcli is not installed or not authenticated, tell the user:
+```
+gogcli is not configured. To set up: gog auth add you@gmail.com
+Report saved locally — you can export later with /sherlock --export <id>
+```
+
+If gogcli is ready, export based on `google.export_format` in config:
+
+**For Docs:**
+```bash
+gog docs create --title "Sherlock: <goal summary>" \
+  --body-file "$HOME/.sherlock/sessions/$SESSION_ID/report/report.md"
+```
+
+**For Sheets (CSV data):**
+```bash
+gog sheets create --title "Sherlock Data: <goal summary>" \
+  --csv "$HOME/.sherlock/sessions/$SESSION_ID/report/data.csv"
+```
+
+Show the user the Google Docs/Sheets URL returned by gogcli.
+
 ---
 
 ## Resuming a Session
