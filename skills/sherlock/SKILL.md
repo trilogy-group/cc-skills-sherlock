@@ -1,8 +1,6 @@
 ---
 name: sherlock
-description: "Deep research agent that decomposes complex questions into a dependency graph, researches them in parallel, verifies findings, and produces a cited report. Use when you need thorough, multi-source research on any topic."
-argument-hint: "[research goal] or [--resume [session-id]] or [--list] or [--report session-id]"
-allowed-tools: Read,Write,Edit,Glob,Grep,Bash,Agent,WebSearch,WebFetch
+description: Deep research agent that decomposes questions into a dependency graph, researches in parallel, verifies findings, and produces cited reports.
 ---
 
 # Sherlock V2 — Deep Research Engine
