@@ -7,12 +7,12 @@
   "plugins": [
     {
       "name": "sherlock",
-      "source": ".",
       "description": "Deep research agent — parallel research with beads, verified citations, cited reports",
-      "version": "2.0.0",
-      "author": {
-        "name": "Rahul Subramaniam"
-      }
+      "source": {
+        "source": "github",
+        "repo": "trilogy-group/cc-skills-sherlock"
+      },
+      "homepage": "https://github.com/trilogy-group/cc-skills-sherlock"
     }
   ]
 }
