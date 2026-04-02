@@ -69,50 +69,45 @@ If that fails, tell the user and stop.
 
 ### 0c. gogcli (Google Workspace)
 
-```bash
-which gog || echo "GOG_NOT_FOUND"
-```
+The setup script (`scripts/setup.sh`) already ran during plugin install and reported gogcli status. Check the install output for these markers:
 
-If not found, offer to install:
+- **`GOG_NOT_FOUND`** — gogcli is not installed. Ask the user:
 
-```
-⚠ gogcli (gog) not found. It enables Google Workspace access
-  (export to Docs/Sheets, search Drive, send via Gmail).
+  ```
+  ⚠ gogcli (gog) not found. It enables Google Workspace access
+    (export to Docs/Sheets, search Drive, send via Gmail).
 
-  Install now? [y/n]
-```
+    Install now? [y/n]
+  ```
 
-If yes:
-```bash
-brew install gogcli 2>&1
-```
+  If yes:
+  ```bash
+  brew install gogcli 2>&1
+  ```
 
-If install fails or user says no: "Google Workspace features will be unavailable. Sherlock will still work for web research."
+  If install fails or user says no: "Google Workspace features will be unavailable. Sherlock will still work for web research." Then proceed to §0d.
 
-If installed, check for authenticated accounts:
-```bash
-gog auth list 2>&1
-```
+- **`GOG_NEEDS_AUTH`** — gogcli is installed but no Google account is linked. Ask the user:
 
-If no accounts configured, walk the user through setup:
+  ```
+  gogcli is installed but no Google account is linked.
 
-```
-gogcli is installed but no Google account is linked.
+  To set up:
+    1. Create OAuth credentials in Google Cloud Console
+       (APIs & Services → Credentials → OAuth 2.0 → Desktop app)
 
-To set up:
-  1. Create OAuth credentials in Google Cloud Console
-     (APIs & Services → Credentials → OAuth 2.0 → Desktop app)
+    2. Download the client_secret JSON and run:
+       gog auth credentials ~/Downloads/client_secret_*.json
 
-  2. Download the client_secret JSON and run:
-     gog auth credentials ~/Downloads/client_secret_*.json
+    3. Add your Google account:
+       gog auth add you@gmail.com
 
-  3. Add your Google account:
-     gog auth add you@gmail.com
+  Set up now, or skip? (You can do this later with: gog auth add <email>)
+  ```
 
-Set up now, or skip? (You can do this later with: gog auth add <email>)
-```
+  If the user wants to set up now, guide them through each step interactively. Store the configured account in `~/.sherlock/config.yaml` under `google.account`.
 
-If the user wants to set up now, guide them through each step interactively. Store the configured account in `~/.sherlock/config.yaml` under `google.account`.
+- **Neither marker** — gogcli is installed and authenticated. Proceed.
 
 ### 0d. Session Directory
 

@@ -8,5 +8,6 @@
   "repository": "https://github.com/trilogy-group/cc-skills-sherlock",
   "license": "MIT",
   "keywords": ["research", "deep-research", "beads", "citations", "verification"],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "postInstall": "bash skills/sherlock/scripts/setup.sh"
 }

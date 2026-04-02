@@ -29,23 +29,14 @@ fi
 
 echo -e "${GREEN}bd: $(which bd)${NC}"
 
-# --- Check and install gogcli ---
-if ! command -v gog &>/dev/null; then
-    echo -e "${YELLOW}gogcli (gog) not found. Installing...${NC}"
-    if command -v brew &>/dev/null; then
-        brew install gogcli 2>&1 && echo -e "${GREEN}gogcli installed via Homebrew.${NC}"
-    else
-        echo -e "${RED}Cannot install gogcli. Install manually: brew install gogcli${NC}"
-        echo -e "${YELLOW}Sherlock will work without gogcli, but Google Workspace features will be unavailable.${NC}"
-    fi
-fi
-
+# --- Check gogcli status (interactive — do not auto-install) ---
 if command -v gog &>/dev/null; then
     echo -e "${GREEN}gog: $(which gog)${NC}"
 
     # Check if any account is configured
     if ! gog auth list 2>/dev/null | grep -q '@'; then
         echo ""
+        echo -e "${YELLOW}GOG_NEEDS_AUTH${NC}"
         echo -e "${YELLOW}gogcli is installed but no Google account is configured.${NC}"
         echo -e "${YELLOW}To set up Google Workspace access:${NC}"
         echo ""
@@ -60,13 +51,16 @@ if command -v gog &>/dev/null; then
         echo ""
         echo -e "  4. Optionally set a default account:"
         echo -e "     ${GREEN}export GOG_ACCOUNT=you@gmail.com${NC}"
-        echo ""
-        echo -e "${YELLOW}You can do this later — Sherlock will work without it.${NC}"
     else
         echo -e "${GREEN}gogcli: authenticated${NC}"
     fi
 else
-    echo -e "${YELLOW}gog: not installed (Google Workspace features disabled)${NC}"
+    echo ""
+    echo -e "${YELLOW}GOG_NOT_FOUND${NC}"
+    echo -e "${YELLOW}gogcli (gog) is not installed.${NC}"
+    echo -e "It enables Google Workspace access (export to Docs/Sheets, search Drive, send via Gmail)."
+    echo -e "To install: ${GREEN}brew install gogcli${NC}"
+    echo -e "Sherlock will still work for web research without it."
 fi
 
 # --- Create directories ---
