@@ -42,6 +42,31 @@ claude --plugin-dir /path/to/cc-skills-sherlock
 4. **VERIFY** — Conductor spot-checks critical claims by re-fetching source URLs
 5. **REPORT** — Synthesizes findings into a cited markdown report + CSV
 
+## Monitoring & Steering Research
+
+### Reviewing beads/tasks in progress
+
+While Sherlock is running, you can monitor research progress:
+
+- **Progress display** — After each batch of researchers returns, Sherlock shows a live status block with completed beads (with source domains), active researchers, and queued beads
+- **Press `t`** in the Claude Code terminal to toggle the task list view and see all subagent tasks
+- **`/tasks`** — List all active tasks and their current status
+- Type **`"summary"`** mid-session to get a synthesis of all findings so far (with source URLs)
+- Type **`"threads"`** to see research threads with completion percentages
+
+### Modifying or refining beads mid-session
+
+You can steer research while it's running by typing directly in the chat:
+
+- **`"focus on X"`** — Create new beads for X, deprioritize others
+- **`"stop looking at Y"`** — Close Y-related beads
+- **`"also check Z"`** — Add new research beads (within budget)
+- **`"pause"`** — Stop dispatching new researchers, hold state
+- **`"report"`** — Stop research and generate the report with what you have
+- **`"quit"`** — Save state and exit (session is resumable with `--resume`)
+
+Sherlock will confirm what changed (e.g., "Rejected 4 beads, created 3 new beads, reprioritized 2").
+
 ## What Makes It Different
 
 - **Parallel research** via beads task graph — 4 researchers work simultaneously
