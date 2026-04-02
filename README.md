@@ -82,6 +82,48 @@ Sherlock will confirm what changed (e.g., "Rejected 4 beads, created 3 new beads
 - Claude Code with Opus model (conductor) and Haiku (researchers)
 - [gogcli](https://gogcli.sh/) (`brew install gogcli`) — optional, enables Google Workspace export (Docs, Sheets, Drive)
 
+## Additional Tools
+
+### gogcli — Google Workspace Integration
+
+[gogcli](https://gogcli.sh/) is an optional CLI that connects Sherlock to Google Workspace. When configured, Sherlock can export finished reports directly to Google Docs and structured data to Google Sheets — no copy-pasting or file uploads needed.
+
+**What it enables:**
+- **Google Docs** — Push completed reports as formatted Google Docs, shareable with your team instantly
+- **Google Sheets** — Export CSV data (with source URLs and quotes) as a Google Sheet for collaborative analysis
+- **Google Drive** — Search and manage research outputs alongside your other files
+- **Gmail** — Send research reports directly via email
+- **Calendar** — Reference calendar events for time-sensitive research context
+
+**Install:**
+
+```bash
+brew install gogcli
+```
+
+**Setup:**
+
+1. Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → OAuth 2.0 Client ID → Desktop app
+2. Download the `client_secret` JSON, then register it:
+   ```bash
+   gog auth credentials ~/Downloads/client_secret_*.json
+   ```
+3. Add your Google account:
+   ```bash
+   gog auth add you@gmail.com
+   ```
+
+**Usage with Sherlock:**
+
+After research completes, Sherlock will offer to push the report to Google Docs. You can also export any previous session:
+
+```bash
+/sherlock:sherlock --export <session-id> --format docs
+/sherlock:sherlock --export <session-id> --format sheets
+```
+
+To enable auto-export on every report, set `google.auto_push: true` in `~/.sherlock/config.yaml`.
+
 ## Permissions
 
 The plugin ships with `settings.json` that grants blanket `WebSearch` and `WebFetch` permissions. This is required — without it, you'll be prompted for every web request (~300-500 per session). On first run, Sherlock checks for these permissions and offers to set them up.
