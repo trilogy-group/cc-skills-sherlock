@@ -1,0 +1,11 @@
+{
+  "name": "sherlock",
+  "description": "Deep research agent that decomposes questions into dependency graphs, researches in parallel, verifies findings, and produces cited reports.",
+  "version": "2.0.0",
+  "author": {
+    "name": "Rahul Subramaniam"
+  },
+  "repository": "https://github.com/rahulsub/sherlock-cc",
+  "license": "MIT",
+  "keywords": ["research", "deep-research", "beads", "citations", "verification"]
+}

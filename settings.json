@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Bash(bd *)",
+      "Bash(BEADS_DIR=*)",
+      "Bash(export BEADS_DIR=*)",
+      "Bash(mkdir *)",
+      "Bash(cat *)",
+      "Bash(cd *)",
+      "Bash(which *)",
+      "Bash(brew install beads*)",
+      "Bash(npm install -g @beads/bd*)"
+    ]
+  }
+}
