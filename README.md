@@ -5,11 +5,17 @@ Deep research agent for Claude Code. Decomposes complex questions into a depende
 ## Install
 
 ```bash
-# From a plugin marketplace (once published)
-/plugin install sherlock@your-marketplace
+# Add the marketplace
+/plugin marketplace add trilogy-group/cc-skills-sherlock
 
-# Or test locally
-claude --plugin-dir /path/to/sherlock-cc
+# Install the plugin
+/plugin install sherlock@sherlock-plugins
+```
+
+Or for local development:
+
+```bash
+claude --plugin-dir /path/to/cc-skills-sherlock
 ```
 
 ## Usage
@@ -52,7 +58,7 @@ claude --plugin-dir /path/to/sherlock-cc
 
 ## Permissions
 
-The plugin ships with `settings.json` that grants blanket `WebSearch` and `WebFetch` permissions. This is required — without it, you'll be prompted for every web request (~300-500 per session).
+The plugin ships with `settings.json` that grants blanket `WebSearch` and `WebFetch` permissions. This is required — without it, you'll be prompted for every web request (~300-500 per session). On first run, Sherlock checks for these permissions and offers to set them up.
 
 ## Output
 
@@ -74,16 +80,18 @@ models:
   researcher: haiku
 ```
 
-## File Structure
+## Plugin Structure
 
 ```
-.claude-plugin/plugin.json    # Plugin manifest
-settings.json                  # Bundled permissions (WebSearch, WebFetch, beads)
+.claude-plugin/
+  plugin.json              # Plugin manifest
+  marketplace.json         # Marketplace catalog (for /plugin install)
+settings.json              # Bundled permissions (WebSearch, WebFetch, beads)
 skills/sherlock/
-  SKILL.md                     # Main skill entry point
-  conductor.md                 # Conductor protocol (plan, execute, verify, report)
-  researcher.md                # Researcher subagent prompt template
-  verification.md              # Trust & verification protocol
-  report-template.md           # Report + CSV output templates
-  scripts/setup.sh             # Auto-install beads + create ~/.sherlock/
+  SKILL.md                 # Main skill entry point
+  conductor.md             # Conductor protocol (plan, execute, verify, report)
+  researcher.md            # Researcher subagent prompt template
+  verification.md          # Trust & verification protocol
+  report-template.md       # Report + CSV output templates
+  scripts/setup.sh         # Auto-install beads + create ~/.sherlock/
 ```
