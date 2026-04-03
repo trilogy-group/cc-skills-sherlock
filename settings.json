@@ -10,6 +10,8 @@
       "Bash(cat *)",
       "Bash(cd *)",
       "Bash(which *)",
+      "Bash(python3 *)",
+      "Bash(echo *)",
       "Bash(brew install beads*)",
       "Bash(npm install -g @beads/bd*)",
       "Bash(gog *)",

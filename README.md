@@ -1,6 +1,6 @@
 # Sherlock V2
 
-Deep research agent for Claude Code. Decomposes complex questions into a dependency graph, researches them in parallel, verifies findings, and produces cited reports.
+Deep research agent for Claude Code. Decomposes complex questions into a dependency graph, researches them in parallel, validates every finding, and produces cited reports.
 
 ## Install
 
@@ -22,65 +22,76 @@ claude --plugin-dir /path/to/cc-skills-sherlock
 
 ```bash
 # Start a new research session
-/sherlock:sherlock "What are the best neighborhoods in Austin for families under $600k?"
+/sherlock "What are the best neighborhoods in Austin for families under $600k?"
 
 # Resume a previous session
-/sherlock:sherlock --resume
+/sherlock --resume
 
 # List all sessions
-/sherlock:sherlock --list
+/sherlock --list
 
 # Regenerate report from existing research
-/sherlock:sherlock --report <session-id>
+/sherlock --report <session-id>
+
+# Re-export updated report to Google Docs/Sheets
+/sherlock --update-export <session-id>
 ```
 
 ## How It Works
 
-1. **REFINE** — Sherlock asks 2-3 clarifying questions to sharpen your goal
-2. **PLAN** — Decomposes into a [beads](https://github.com/gastownhall/beads) dependency graph
-3. **EXECUTE** — Dispatches parallel Haiku researcher subagents (4 at a time)
-4. **VERIFY** — Conductor spot-checks critical claims by re-fetching source URLs
-5. **REPORT** — Synthesizes findings into a cited markdown report + CSV
+1. **REFINE** — 2-3 clarifying questions to sharpen your goal
+2. **PLAN** — Decomposes into a [beads](https://github.com/gastownhall/beads) dependency graph with real dependencies (`bd dep add`)
+3. **EXECUTE** — Dispatches parallel researcher subagents (batch size from config)
+4. **VERIFY** — Creates validation beads for every claim, dispatches validators in parallel
+5. **REPORT** — Synthesizes into a cited markdown report + CSV with full provenance
+
+## What's New in V2.1
+
+- **Config-driven execution** — `~/.sherlock/config.yaml` controls batch size, model, bead budget, depth limit, and validation mode. No more hardcoded values.
+- **Real dependency graph** — Beads are wired with `bd dep add`, `bd ready` finds dispatchable work. Parent beads close when children resolve.
+- **Full validation mode** — Every claim gets a validation bead, dispatched in parallel. Not just spot-checks.
+- **Structured JSON findings** — Researchers write JSON, not freeform text. Conductor parses reliably.
+- **Retry on source failure** — Researchers try alternative sources when URLs return 403/404.
+- **Cross-source contradiction detection** — Conflicting data is flagged and surfaced in the report.
+- **Incremental CSV** — Data rows written after each batch, not just at the end.
+- **Bead-level provenance** — Every CSV row and report claim traces to a specific bead ID.
+- **Permission cleanup** — Stale domain-specific `WebFetch(domain:...)` entries are removed automatically.
+- **Project-scoped permissions** — Permissions live in `.claude/settings.local.json` per project.
+- **Google Workspace update-export** — `--update-export` pushes corrected reports without recreating.
+- **Cost warning for Opus researchers** — Config warns before running expensive researcher models.
 
 ## Monitoring & Steering Research
 
 ### Reviewing beads/tasks in progress
 
-While Sherlock is running, you can monitor research progress:
-
-- **Progress display** — After each batch of researchers returns, Sherlock shows a live status block with completed beads (with source domains), active researchers, and queued beads
-- **Press `t`** in the Claude Code terminal to toggle the task list view and see all subagent tasks
-- **`/tasks`** — List all active tasks and their current status
-- Type **`"summary"`** mid-session to get a synthesis of all findings so far (with source URLs)
+- **Progress display** — After each batch, shows completed beads (with source domains and bead IDs), active researchers, and queued beads (from `bd ready`)
+- **Press `t`** in Claude Code to toggle the task list view
+- Type **`"summary"`** mid-session for a synthesis of all findings so far
 - Type **`"threads"`** to see research threads with completion percentages
 
 ### Modifying or refining beads mid-session
 
-You can steer research while it's running by typing directly in the chat:
-
 - **`"focus on X"`** — Create new beads for X, deprioritize others
 - **`"stop looking at Y"`** — Close Y-related beads
 - **`"also check Z"`** — Add new research beads (within budget)
-- **`"pause"`** — Stop dispatching new researchers, hold state
-- **`"report"`** — Stop research and generate the report with what you have
-- **`"quit"`** — Save state and exit (session is resumable with `--resume`)
-
-Sherlock will confirm what changed (e.g., "Rejected 4 beads, created 3 new beads, reprioritized 2").
+- **`"pause"`** / **`"report"`** / **`"quit"`** — Control flow
 
 ## What Makes It Different
 
-- **Parallel research** via beads task graph — 4 researchers work simultaneously
-- **Every claim has a source URL and direct quote** — traceable evidence chain
-- **Conductor spot-checks** critical claims before writing the report
-- **Trust Summary** in every report — honest accounting of what was verified
+- **Parallel research** via beads dependency graph — configurable batch size (default 4)
+- **Every claim validated** — full validation creates verification beads for all findings
+- **Structured provenance** — every CSV row and report claim traces to a bead ID
+- **Cross-source contradiction detection** — conflicting data is flagged, not hidden
+- **Trust Summary** in every report — honest accounting of validation results
 - **Resumable sessions** — walk away and come back days later
-- **Steerable** — redirect research mid-session ("stop looking at X, focus on Y")
+- **Steerable** — redirect research mid-session
+- **Config-driven** — batch size, model, budget, validation mode all configurable
 
 ## Prerequisites
 
-- [beads CLI](https://github.com/gastownhall/beads) (`brew install beads`) — auto-installed on first run
-- Claude Code with Opus model (conductor) and Haiku (researchers)
-- [gogcli](https://gogcli.sh/) (`brew install gogcli`) — optional, enables Google Workspace export (Docs, Sheets, Drive)
+- [beads CLI](https://github.com/gastownhall/beads) (`brew install beads`) — auto-installed on first run, verified working
+- Claude Code with Opus model (conductor) and configurable researcher model
+- [gogcli](https://gogcli.sh/) (`brew install gogcli`) — optional, enables Google Workspace export
 
 ## Additional Tools
 
@@ -115,24 +126,25 @@ brew install gogcli
 
 **Usage with Sherlock:**
 
-After research completes, Sherlock will offer to push the report to Google Docs. You can also export any previous session:
+After research completes, Sherlock will offer to push the report to Google Docs. You can also export or update any session:
 
 ```bash
-/sherlock:sherlock --export <session-id> --format docs
-/sherlock:sherlock --export <session-id> --format sheets
+/sherlock --export <session-id> --format docs
+/sherlock --export <session-id> --format sheets
+/sherlock --update-export <session-id>
 ```
 
 To enable auto-export on every report, set `google.auto_push: true` in `~/.sherlock/config.yaml`.
 
 ## Permissions
 
-The plugin ships with `settings.json` that grants blanket `WebSearch` and `WebFetch` permissions. This is required — without it, you'll be prompted for every web request (~300-500 per session). On first run, Sherlock checks for these permissions and offers to set them up.
+Permissions are **project-scoped** via `.claude/settings.local.json`. The plugin ships with `settings.json` that grants blanket `WebSearch` and `WebFetch` permissions. On first run, Sherlock checks for these in the current project and offers to set them up. Stale domain-specific `WebFetch(domain:...)` entries from previous sessions are automatically cleaned up.
 
 ## Output
 
 Reports are saved to `~/.sherlock/sessions/<id>/report/`:
-- `report.md` — Full cited report with Trust Summary
-- `data.csv` — Structured data with Source_URL and Source_Quote columns
+- `report.md` — Full cited report with Trust Summary and evidence chain
+- `data.csv` — Structured data with `Bead_ID`, `Source_URL`, `Source_Quote`, `Verified` columns (written incrementally)
 
 ## Configuration
 
@@ -140,16 +152,19 @@ Global config at `~/.sherlock/config.yaml` (auto-created on first run):
 
 ```yaml
 defaults:
-  researcher_count: 4     # parallel subagents
-  bead_budget: 50          # max research questions
-  depth_limit: 4           # max decomposition depth
+  researcher_count: 4       # parallel subagents per batch
+  bead_budget: 50            # max research questions
+  depth_limit: 4             # max decomposition depth
+  validation_mode: full      # "full" = validate every claim, "spot-check" = 5-10 critical
+
 models:
-  conductor: opus
-  researcher: haiku
+  conductor: opus            # always opus
+  researcher: haiku          # haiku | sonnet | opus (WARNING: opus is 20-50x more expensive)
+
 google:
-  account: ""              # Google account for gogcli (e.g. you@gmail.com)
-  auto_push: false         # auto-export report to Google Docs on completion
-  export_format: docs      # docs | sheets
+  account: ""                # Google account for gogcli
+  auto_push: false           # auto-export on completion
+  export_format: docs        # docs | sheets | both
 ```
 
 ## Plugin Structure
@@ -157,13 +172,13 @@ google:
 ```
 .claude-plugin/
   plugin.json              # Plugin manifest
-  marketplace.json         # Marketplace catalog (for /plugin install)
-settings.json              # Bundled permissions (WebSearch, WebFetch, beads)
+  marketplace.json         # Marketplace catalog
+settings.json              # Bundled permissions (WebSearch, WebFetch, beads, python3)
 skills/sherlock/
-  SKILL.md                 # Main skill entry point
+  SKILL.md                 # Main skill entry point (config loading, permission checks)
   conductor.md             # Conductor protocol (plan, execute, verify, report)
-  researcher.md            # Researcher subagent prompt template
-  verification.md          # Trust & verification protocol
+  researcher.md            # Researcher + validator subagent templates
+  verification.md          # Beads-based validation protocol
   report-template.md       # Report + CSV output templates
-  scripts/setup.sh         # Auto-install beads + create ~/.sherlock/
+  scripts/setup.sh         # Auto-install beads + verify + create ~/.sherlock/
 ```

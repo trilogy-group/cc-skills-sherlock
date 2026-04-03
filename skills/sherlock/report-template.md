@@ -20,13 +20,15 @@ Adapt sections based on research type — not every section applies to every rep
 |--------|-------|
 | Factual claims in report | {{N}} |
 | Claims with source URL + quote | {{N}} ({{%}}) |
-| Claims spot-checked by conductor | {{N}} / {{TOTAL}} |
-| Spot-check results | {{N}} confirmed, {{N}} corrected, {{N}} failed |
+| Validation mode | {{full / spot-check}} |
+| Claims validated | {{N}} / {{TOTAL}} |
+| Validation results | {{N}} confirmed, {{N}} corrected, {{N}} refuted, {{N}} source dead |
+| Contradictions found | {{N — with details in Findings section}} |
 | Unique sources cited | {{N}} |
 | Source types | {{e.g. "government (4), primary data (8), media (3)"}} |
 | Unverifiable claims | {{N or "None"}} — {{noted in report as [Unverified]}} |
 
-*Every factual claim links to its source. Click any link to verify.*
+*Every factual claim links to its source. Click any link to verify. Every claim traces to a bead ID in the appendix.*
 
 ---
 
@@ -44,7 +46,8 @@ School ratings average 8.2/10 ([GreatSchools](https://greatschools.org/...)).}}
 - **Goal:** {{REFINED_GOAL}}
 - **Decomposition:** {{THREAD_COUNT}} research threads, {{BEAD_COUNT}} questions
 - **Sources:** {{SOURCE_COUNT}} sources: {{types}}
-- **Verification:** Conductor spot-checked {{N}} critical claims by re-fetching URLs
+- **Validation:** {{VALIDATION_MODE}} — {{N}} claims validated by independent re-fetch of source URLs
+- **Contradictions:** {{N}} cross-source conflicts detected; {{N}} resolved, {{N}} noted in report
 - **Limitations:** {{gaps, date ranges, ambiguities}}
 
 ---
@@ -60,14 +63,30 @@ The neighborhood has seen 8% YoY price growth ([Redfin](https://redfin.com/...))
 This makes Mueller one of the best values in central Austin [Inference — based on price
 data from Zillow and Redfin above].
 
-If sources disagreed:
+If sources disagreed (contradiction surfacing):
 Crime data varies: Austin PD reports 12/1000 ([APD](https://austintexas.gov/...))
 while NeighborhoodScout reports 15/1000 ([NS](https://neighborhoodscout.com/...)).
-The gap likely reflects different reporting periods [Inference].}}
+The gap likely reflects different reporting periods [Inference].
+
+If a claim was corrected during validation:
+The program amount is $10,900/year ([TX Comptroller](https://comptroller.texas.gov/))
+— *corrected from initial finding of ~$10,000 during validation*.}}
 
 ### {{Thread 2 Title}}
 
 {{Same structure}}
+
+---
+
+## Contradictions
+
+{{Skip if no contradictions found. Otherwise list each one:
+
+| Topic | Source A | Source B | Resolution |
+|-------|----------|----------|------------|
+| {{topic}} | {{claim}} ([source](url)) | {{claim}} ([source](url)) | {{which is correct, or "Unresolved — both values noted in report"}} |
+
+}}
 
 ---
 
@@ -78,7 +97,6 @@ The gap likely reflects different reporting periods [Inference].}}
 | Factor | {{Option A}} | {{Option B}} | {{Option C}} |
 |--------|-------------|-------------|-------------|
 | {{F1}} | {{val}} | {{val}} | {{val}} |
-| {{F2}} | {{val}} | {{val}} | {{val}} |
 
 ---
 
@@ -113,12 +131,13 @@ The gap likely reflects different reporting periods [Inference].}}
 
 ### {{Thread Title}}
 
-**{{Bead question}}** ({{bead ID}}) — {{status}}
-- Answer: {{ANSWER field}}
-- Source: [{{domain}}]({{SOURCE_1_URL}})
-- Quote: "{{SOURCE_1_QUOTE}}"
+**{{Bead question}}** (bead: `{{bead_id}}`) — {{status}}
+- Answer: {{answer field}}
+- Source: [{{domain}}]({{sources[0].url}})
+- Quote: "{{sources[0].quote}}"
 - Confidence: {{high/medium/low}}
-- Spot-checked: {{yes/no}} — {{result if yes}}
+- Validated: {{yes/no}} — {{verdict if yes}} (validation bead: `{{validation_bead_id}}`)
+- Contradictions: {{any contradictions found, or "None"}}
 
 </details>
 ```
@@ -131,20 +150,20 @@ For data-heavy research, produce a CSV alongside the markdown report.
 
 **Required columns:**
 ```
-{{domain columns}},Source_URL,Source_Quote,Commentary
+Bead_ID,{{domain columns}},Source_URL,Source_Quote,Verified,Commentary
 ```
 
-Example for the education choice research:
-```
-State,Program_Name,Type,Amount,Eligibility,Physical_School,Virtual_School,Homeschool_Apps,Supplemental_Apps,Status,Source_URL,Source_Quote,Commentary
-Arizona,Empowerment Scholarship Account,ESA,~$10300,Universal - all K-12,Yes,Yes,Yes,Yes,Active,https://arizonaempowermentscholarship.org/,"All K-12 students in Arizona are eligible to receive an ESA",Gold standard ESA. Broadest coverage.
-```
+- `Bead_ID`: The research bead that produced this finding (provenance tracking)
+- `Source_URL`: At least one URL per data row — no exceptions
+- `Source_Quote`: The key quote supporting that row's data
+- `Verified`: `✓` (confirmed), `~` (corrected), `✗` (refuted/dropped), `?` (unverified)
+- `Commentary`: The "so what" from a business perspective
 
 **Rules for CSV:**
-- Every data row MUST have a Source_URL — no exceptions
-- Every data row MUST have a Source_Quote — the key text supporting the data
+- Every data row MUST have Bead_ID, Source_URL, Source_Quote — no exceptions
+- Write the header row FIRST, then append rows incrementally after each research batch
 - If a state/item has no program, Source_URL should point to the source confirming no program exists
-- Commentary provides the "so what" from a business perspective
+- Corrected values during validation should be noted in Commentary: "Corrected from X to Y during validation"
 
 ---
 
@@ -154,7 +173,7 @@ Arizona,Empowerment Scholarship Account,ESA,~$10300,Universal - all K-12,Yes,Yes
 
 **Investigative research** (why X happened): Skip Comparison. Structure Findings by causal chain.
 
-**Data collection** (50-state survey): CSV is the primary output. Report summarizes patterns and highlights.
+**Data collection** (50-state survey): CSV is the primary output. Report summarizes patterns and highlights. Write CSV incrementally.
 
 **Decision research** (should we do X): Pros/cons structure. Recommendation section is most important.
 

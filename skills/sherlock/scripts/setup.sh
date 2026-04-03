@@ -22,12 +22,22 @@ if ! command -v bd &>/dev/null; then
     fi
 fi
 
+# Verify beads actually works (not just exists)
 if ! command -v bd &>/dev/null; then
-    echo -e "${RED}Beads CLI still not found after install attempt.${NC}"
+    echo -e "${RED}BEADS_BROKEN: Beads CLI not found after install attempt.${NC}"
+    echo -e "${RED}Try: brew reinstall beads${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}bd: $(which bd)${NC}"
+BD_VERSION=$(bd --version 2>&1 || echo "UNKNOWN")
+if [[ "$BD_VERSION" == *"error"* ]] || [[ "$BD_VERSION" == "UNKNOWN" ]]; then
+    echo -e "${RED}BEADS_BROKEN: Beads CLI is installed but not working.${NC}"
+    echo -e "${RED}Version output: ${BD_VERSION}${NC}"
+    echo -e "${RED}Try: brew reinstall beads${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}bd: $(which bd) (${BD_VERSION})${NC}"
 
 # --- Check gogcli status (interactive — do not auto-install) ---
 if command -v gog &>/dev/null; then
@@ -71,36 +81,37 @@ echo -e "${GREEN}Sessions: ${SHERLOCK_HOME}/sessions/${NC}"
 if [ ! -f "${SHERLOCK_HOME}/config.yaml" ]; then
     cat > "${SHERLOCK_HOME}/config.yaml" << 'YAML'
 # Sherlock V2 Configuration
+# All values here are READ by the conductor at session start.
+# Changes take effect on the next /sherlock invocation.
+
 defaults:
-  researcher_count: 4
-  bead_budget: 50
-  depth_limit: 4
-  convergence_threshold: 0.8
-  researcher_timeout: 180
+  researcher_count: 4       # parallel subagents per batch
+  bead_budget: 50            # max research questions
+  depth_limit: 4             # max decomposition depth
+  convergence_threshold: 0.8 # fraction of beads that must resolve
+  researcher_timeout: 180    # seconds before flagging a stuck researcher
+  validation_mode: full      # "full" = validate every claim, "spot-check" = 5-10 critical claims
 
 models:
-  conductor: opus
-  researcher: haiku
-
-cost:
-  show_in_dashboard: true
-  opus_input_per_mtok: 15.00
-  opus_output_per_mtok: 75.00
-  haiku_input_per_mtok: 0.80
-  haiku_output_per_mtok: 4.00
+  conductor: opus            # always opus (not configurable — conductor needs reasoning)
+  researcher: haiku          # haiku (fast/cheap) | sonnet (balanced) | opus (thorough/expensive)
+                             # WARNING: opus researchers are 20-50x more expensive than haiku
 
 report:
   format: markdown
   include_sources: true
   include_methodology: true
-  include_raw_data: true
+  include_evidence_chain: true
+  incremental_csv: true      # write CSV rows after each batch (not just at the end)
 
 google:
-  account: ""
-  auto_push: false
-  export_format: docs
+  account: ""                # Google account for gogcli (e.g. you@gmail.com)
+  auto_push: false           # auto-export report to Google Docs on completion
+  export_format: docs        # docs | sheets | both
 YAML
     echo -e "${GREEN}Config: ${SHERLOCK_HOME}/config.yaml${NC}"
+else
+    echo -e "${GREEN}Config: ${SHERLOCK_HOME}/config.yaml (existing)${NC}"
 fi
 
 echo -e "${GREEN}Sherlock environment ready.${NC}"

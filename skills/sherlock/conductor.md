@@ -4,6 +4,25 @@ You are the Sherlock conductor. This document defines your exact behavior.
 
 ---
 
+## Phase 0: Load Config
+
+Before any research, read `~/.sherlock/config.yaml` and set session variables:
+
+```bash
+SHERLOCK_CONFIG=$(cat "$HOME/.sherlock/config.yaml" 2>/dev/null || echo "")
+```
+
+Extract these (use defaults if missing):
+- `BATCH_SIZE` = `defaults.researcher_count` (default: 4)
+- `BEAD_BUDGET` = `defaults.bead_budget` (default: 50)
+- `DEPTH_LIMIT` = `defaults.depth_limit` (default: 4)
+- `RESEARCHER_MODEL` = `models.researcher` (default: "haiku")
+- `VALIDATION_MODE` = `defaults.validation_mode` (default: "full")
+
+**These values override all hardcoded numbers in this protocol.**
+
+---
+
 ## Phase 1: REFINE
 
 Turn a vague request into a sharp, researchable goal.
@@ -33,31 +52,49 @@ mkdir -p "$SESSION_DIR/report"
 cd "$SESSION_DIR" && BEADS_DIR="$SESSION_DIR/.beads" bd init --quiet --stealth
 ```
 
-### Build the graph:
+Verify beads initialized correctly:
+```bash
+export BEADS_DIR="$SESSION_DIR/.beads"
+bd list --json 2>&1 | head -1
+```
+
+If this errors, **STOP and tell the user**: "Beads database failed to initialize. Try `brew reinstall beads` and retry."
+
+### Build the graph with REAL dependencies:
+
 ```bash
 export BEADS_DIR="$HOME/.sherlock/sessions/$SESSION_ID/.beads"
 
-# Epic (the goal itself)
-bd create "Goal text here" -p 0
+# Step 1: Create the epic (P0)
+EPIC_ID=$(bd create "Goal text here" -p 0 2>&1 | grep -o '[a-z0-9-]*$' | head -1)
 
-# Threads (3-7 major research areas)
-bd create "Thread 1 title" -p 1
-bd create "Thread 2 title" -p 1
-# ...
+# Step 2: Create threads (P1) — capture their IDs
+THREAD1_ID=$(bd create "Thread 1 title" -p 1 2>&1 | grep -o '[a-z0-9-]*$' | head -1)
+THREAD2_ID=$(bd create "Thread 2 title" -p 1 2>&1 | grep -o '[a-z0-9-]*$' | head -1)
 
-# Leaf questions (specific, single-answer questions)
-bd create "Specific question?" -p 2
+# Step 3: Wire epic → thread dependencies
+bd dep add $EPIC_ID $THREAD1_ID
+bd dep add $EPIC_ID $THREAD2_ID
 
-# Dependencies (epic blocked by threads, threads blocked by leaves)
-bd dep add <epic-id> <thread-id>
-bd dep add <thread-id> <leaf-id>
+# Step 4: Create leaf beads (P2) — capture their IDs
+LEAF1_ID=$(bd create "Specific question?" -p 2 2>&1 | grep -o '[a-z0-9-]*$' | head -1)
+LEAF2_ID=$(bd create "Another question?" -p 2 2>&1 | grep -o '[a-z0-9-]*$' | head -1)
+
+# Step 5: Wire thread → leaf dependencies
+bd dep add $THREAD1_ID $LEAF1_ID
+bd dep add $THREAD1_ID $LEAF2_ID
 ```
+
+**IMPORTANT: You MUST capture bead IDs and wire dependencies.** If `bd dep add` is not called, `bd ready` won't work and the dependency graph is meaningless.
+
+**Practical note:** Parsing IDs from `bd create` output can be fragile. If ID capture fails, use `bd list --json` after creation to get all IDs, then wire dependencies in a second pass.
 
 ### Decomposition rules:
 - **3-7 threads** per goal (major research areas)
 - **2-5 leaf beads** per thread (specific answerable questions)
-- **Max depth: 4** — level 4 must be directly answerable
-- **Max budget: 50 beads** — reserve 20% for follow-ups and corrections
+- **Max depth:** `$DEPTH_LIMIT` — deepest level must be directly answerable
+- **Max budget:** `$BEAD_BUDGET` — reserve 20% for follow-ups and validation beads
+- **No duplicates:** Before creating any bead, check `bd list --json` for overlap
 
 ### Before creating any bead:
 1. Is it a single, specific question? (no "and" joining two questions)
@@ -65,22 +102,35 @@ bd dep add <thread-id> <leaf-id>
 3. Does it duplicate an existing bead? Check: `bd list --json`
 4. Is it within the depth limit?
 
+### Initialize partial CSV:
+
+After creating all beads, write the CSV header immediately:
+
+```bash
+# Write CSV header — this file gets appended to after each batch
+echo 'Bead_ID,{{domain columns}},Source_URL,Source_Quote,Verified,Commentary' \
+  > "$HOME/.sherlock/sessions/$SESSION_ID/report/data.csv"
+```
+
 ---
 
 ## Phase 3: EXECUTE
 
-Dispatch Haiku researchers in parallel batches.
+Dispatch researchers in parallel batches of `$BATCH_SIZE`.
 
 ### Loop:
 ```
 1. Find ready beads: bd ready --json
-2. Pick up to 4 ready beads
-3. For each, spawn Agent(model: "haiku") with researcher prompt from researcher.md
-4. Send all 4 Agent calls in a SINGLE message (parallel execution)
+   (If bd ready is not available, use: bd list --json and filter for open leaf beads)
+2. Pick up to $BATCH_SIZE ready beads
+3. For each, spawn Agent(model: "$RESEARCHER_MODEL") with researcher prompt
+4. Send ALL Agent calls in a SINGLE message (parallel execution)
 5. Wait for all to return
-6. Process results (see Phase 3b)
-7. Output progress display
-8. Repeat until no ready beads remain or convergence reached
+6. Process results (see below)
+7. Close parent beads if all children are resolved
+8. Append completed findings to partial CSV
+9. Output progress display
+10. Repeat until no ready beads remain or convergence reached
 ```
 
 ### Spawning researchers:
@@ -90,66 +140,119 @@ For each bead, fill the template from `researcher.md`:
 - `{{PARENT_CONTEXT}}` — relevant findings from parent/sibling beads
 - `{{BEADS_DIR}}` — absolute path to session `.beads/` directory
 
+Use the configured model:
+```
+Agent(
+  model: "$RESEARCHER_MODEL",   ← from config, NOT hardcoded
+  description: "Research: <5-word summary>",
+  prompt: <filled template>
+)
+```
+
 ### Processing returned results:
 
 For each researcher that returns:
 
-1. **Read the bead's notes:** `bd show <id>` — check for ANSWER, SOURCE_URL, SOURCE_QUOTE
-2. **If finding has no SOURCE_URL:** Re-open the bead, flag it for retry
-3. **If finding looks good:** Extract these fields for later use:
-   - `ANSWER` → will go in report/CSV
-   - `SOURCE_1_URL` → will go in Source_URL column
-   - `SOURCE_1_QUOTE` → will go in Source_Quote column
-   - `CONFIDENCE` → determines verification priority
-4. **If researcher said "Needs decomposition":** Break it into smaller questions
+1. **Read the bead's notes:** `bd show <id>` — parse the JSON findings
+2. **If finding has no SOURCE_URL:** Re-open the bead with `bd update <id> --status open`, flag for retry with different search terms
+3. **If finding looks good:** Extract fields:
+   - `answer` → report/CSV
+   - `sources[].url` → Source_URL column and inline citations
+   - `sources[].quote` → Source_Quote column and appendix
+   - `confidence` → determines verification priority
+   - `bead_id` → provenance tracking
+4. **If researcher said "Needs decomposition":** Break into smaller questions (within budget)
 5. **If researcher said "Unable to find":** Note the gap, move on
-6. **Track for progress display:** Show bead summary + source domain
+6. **Track for progress display:** Show bead summary + source domain + bead ID
 
-### After each batch, check:
+### After each batch:
+
+**Close parent beads whose children are all resolved:**
+```bash
+# For each thread bead, check if all its leaf children are closed
+# If yes, close the thread: bd close <thread-id> --reason "All children resolved"
+# If all threads are closed, close the epic too
+```
+
+**Append to partial CSV:**
+```bash
+# For each newly resolved bead, append a row to data.csv
+echo '<bead_id>,<data fields>,<source_url>,<source_quote>,<pending>,<commentary>' \
+  >> "$HOME/.sherlock/sessions/$SESSION_ID/report/data.csv"
+```
+
+**Check convergence:**
 - Are there new ready beads? → Continue to next batch
 - Did findings reveal follow-up questions? → Create new beads (within budget)
 - Is convergence reached? → Move to Phase 4
 
+### Cross-source contradiction detection:
+
+After each batch, scan newly resolved beads for contradictions with existing findings:
+- Same question, different answers from different sources
+- Quantitative claims that differ by >10%
+- Conflicting status/eligibility information
+
+If contradictions found, **create a resolution bead** that specifically asks researchers to investigate the discrepancy with additional sources.
+
 ---
 
-## Phase 3b: VERIFY (Spot-Check)
+## Phase 3b: VERIFY (Beads-Based Validation)
 
-**This phase runs BETWEEN the last research batch and report generation. Do NOT skip it.**
+**This phase runs AFTER research completes and BEFORE report generation. Do NOT skip it.**
 
-The conductor (you, Opus) verifies critical claims by re-fetching source URLs directly.
+### Validation mode: `$VALIDATION_MODE`
 
-### What to verify:
-Pick **5-10 of the most important findings** — the ones that will drive the report's conclusions or appear in the executive summary. Prioritize:
-- Quantitative claims (prices, statistics, ratings)
-- Claims that drive the recommendation
-- Low-confidence findings
-- Findings with only one source
+**If "full" (default):**
+Create a validation bead for EVERY resolved research bead. Each validation bead re-fetches the primary source URL and confirms the claimed data.
 
-### How to verify:
-For each claim to verify:
+**If "spot-check":**
+Create validation beads for 5-10 critical claims only (quantitative, recommendation-driving, low-confidence, single-source).
 
-1. Read the bead's SOURCE_URL
-2. **WebFetch the URL yourself**
-3. Search the page content for the claimed data
-4. Compare: does the page actually say what the researcher quoted?
+### How validation beads work:
 
-### Record the result:
-Keep a running tally:
-```
-VERIFIED (5): claim matches source page
-DISCREPANCY (1): page says $515k, researcher said $520k — note the correction
-REFUTED (0): page contradicts the claim
-SOURCE_DEAD (1): URL returns 404
-NOT_ON_PAGE (0): page loads but data isn't there (hallucination signal)
+```bash
+export BEADS_DIR="$HOME/.sherlock/sessions/$SESSION_ID/.beads"
+
+# For each claim to validate:
+bd create "VALIDATE: <original bead question> — verify <specific claim> against <source_url>" -p 3
+# Wire dependency: validation bead blocks the synthesis epic
+bd dep add $EPIC_ID $VALIDATION_BEAD_ID
 ```
 
-### If a claim fails verification:
-- **Discrepancy:** Correct the finding in your notes. Use the accurate number in the report.
-- **Refuted / Not on page:** Drop the claim from the report. Note the gap.
-- **Source dead:** Try to find an alternative source. If you can, use it. If not, mark as unverified.
+### Dispatch validators:
 
-### This is NOT optional
-The verification count goes into the Trust Summary. If you skip verification, the Trust Summary must say "0 claims spot-checked" — which destroys credibility. Do the work.
+Spawn validation agents in parallel batches of `$BATCH_SIZE`, same as researchers:
+
+```
+Agent(
+  model: "$RESEARCHER_MODEL",
+  description: "Validate: <5-word summary>",
+  prompt: <validation template from verification.md>
+)
+```
+
+### Process validation results:
+
+For each validator that returns:
+1. Read the validation bead notes for the verdict: CONFIRMED, CORRECTED, REFUTED, SOURCE_DEAD, NOT_ON_PAGE
+2. **CONFIRMED:** Update original bead notes with `[Validated ✓]`
+3. **CORRECTED:** Update original bead with corrected data. Flag in CSV.
+4. **REFUTED/NOT_ON_PAGE:** Drop the claim. Create a new research bead to find alternative evidence (within budget).
+5. **SOURCE_DEAD:** Create a re-research bead with different search terms.
+
+### Record the tally:
+
+Track across all validation beads:
+```
+Validated: 35 claims
+  Confirmed: 30
+  Corrected: 3 (updated in report)
+  Refuted: 1 (dropped)
+  Source dead: 1 (re-researched)
+```
+
+This goes directly into the Trust Summary.
 
 ---
 
@@ -161,7 +264,7 @@ Decide when to stop researching and start reporting.
 1. ≥80% of research beads are resolved
 2. All major threads have at least partial findings
 3. The core question can be answered
-4. Spot-check verification is complete
+4. Validation phase is complete (all validation beads resolved)
 
 **Early termination triggers:**
 - User says "report" or "quit"
@@ -182,45 +285,60 @@ bd list --json
 bd show <id>
 ```
 
-Extract from each bead: ANSWER, SOURCE_URL(s), SOURCE_QUOTE(s), CONFIDENCE
+Extract from each bead: answer, sources (URL + quote), confidence, validation result, bead_id
 
 ### Step 2: Write the report
 
 Follow `report-template.md`. Key requirements:
 
 **For the report (markdown):**
-- Trust Summary at the top with honest verification counts
-- Every factual claim has an inline hyperlink: `price is $520k ([source](https://url))`
+- Trust Summary with validation counts (not just spot-check counts)
+- Every factual claim has an inline hyperlink + bead ID in appendix
 - Sources section lists every URL with what was extracted
-- Appendix has per-bead evidence chains
+- Appendix has per-bead evidence chains with validation status
+- **Contradictions section** if any were found during research
 
-**For CSV output (if applicable):**
-- MUST include `Source_URL` column — at least one URL per data row
-- MUST include `Source_Quote` column — the key quote supporting that row's data
-- Commentary column with analysis
+**For CSV output:**
+- Finalize the partial CSV (sort, clean up)
+- MUST include `Bead_ID`, `Source_URL`, `Source_Quote`, `Verified` columns
+- `Verified` column: "✓" (confirmed), "~" (corrected), "✗" (refuted), "?" (unverified)
 
 ### Step 3: Save
+
 ```bash
 # Report
 cat > "$HOME/.sherlock/sessions/$SESSION_ID/report/report.md" << 'EOF'
 ...
 EOF
 
-# CSV (if applicable)
-cat > "$HOME/.sherlock/sessions/$SESSION_ID/report/data.csv" << 'EOF'
-...
-EOF
+# CSV is already incrementally written — just verify completeness
 
-# Update meta.json
+# Save meta.json with export tracking
+cat > "$HOME/.sherlock/sessions/$SESSION_ID/meta.json" << 'EOF'
+{
+  "id": "$SESSION_ID",
+  "goal": "<refined goal>",
+  "status": "complete",
+  "created": "<timestamp>",
+  "beads_total": N,
+  "beads_resolved": N,
+  "beads_validated": N,
+  "validation_results": { "confirmed": N, "corrected": N, "refuted": N, "source_dead": N },
+  "sources": N,
+  "google_doc_id": "",
+  "google_sheet_id": ""
+}
+EOF
 ```
 
 ### Step 4: Present to user
+
 ```
 ━━━ Sherlock ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Research complete.
   Beads: 35/42 resolved | 4 rejected | 3 unresolved
-  Verified: 8 claims spot-checked (7 confirmed, 1 corrected)
-  Time: 18 min | Est. cost: $0.67
+  Validated: 30 claims (28 confirmed, 2 corrected)
+  Time: 18 min
 
   Files:
     report:  ~/.sherlock/sessions/<id>/report/report.md
@@ -230,36 +348,53 @@ EOF
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### Step 5: Google Workspace Export (optional)
+### Step 5: Google Workspace Export
 
-If the user says yes to "Push to Google Docs?" (or `google.auto_push` is true in config), and gogcli is available:
+If the user says yes (or `google.auto_push` is true in config), and gogcli is available:
 
 ```bash
-# Check gogcli is available and authenticated
 which gog && gog auth list
 ```
 
-If gogcli is not installed or not authenticated, tell the user:
-```
-gogcli is not configured. To set up: gog auth add you@gmail.com
-Report saved locally — you can export later with /sherlock --export <id>
-```
-
-If gogcli is ready, export based on `google.export_format` in config:
-
-**For Docs:**
+**For Docs:** (note: use `--file` flag, not `--title`)
 ```bash
-gog docs create --title "Sherlock: <goal summary>" \
-  --body-file "$HOME/.sherlock/sessions/$SESSION_ID/report/report.md"
+gog docs create "Sherlock: <goal summary>" \
+  --file "$HOME/.sherlock/sessions/$SESSION_ID/report/report.md" -j
 ```
 
-**For Sheets (CSV data):**
+**For Sheets:** (create empty, then populate with JSON)
 ```bash
-gog sheets create --title "Sherlock Data: <goal summary>" \
-  --csv "$HOME/.sherlock/sessions/$SESSION_ID/report/data.csv"
+# Create empty sheet
+SHEET_ID=$(gog sheets create "Sherlock Data: <goal summary>" -j | python3 -c "import sys,json; print(json.load(sys.stdin)['spreadsheetId'])")
+
+# Convert CSV to JSON 2D array and populate
+python3 -c "
+import csv, json
+with open('$HOME/.sherlock/sessions/$SESSION_ID/report/data.csv') as f:
+    rows = list(csv.reader(f))
+print(json.dumps(rows))
+" > /tmp/sherlock_sheet_data.json
+
+gog sheets update "$SHEET_ID" "Sheet1!A1" --values-json "$(cat /tmp/sherlock_sheet_data.json)"
+gog sheets freeze "$SHEET_ID" --rows 1
+gog sheets format "$SHEET_ID" "Sheet1!A1:Z1" --format-json '{"textFormat":{"bold":true}}' --format-fields "textFormat.bold"
 ```
 
-Show the user the Google Docs/Sheets URL returned by gogcli.
+**Save export IDs in meta.json** for `--update-export`:
+```bash
+# Update meta.json with google_doc_id and google_sheet_id
+```
+
+Show the user the Google Docs/Sheets URLs.
+
+### Step 6: Update Export (`--update-export`)
+
+When invoked with `--update-export <id>`:
+
+1. Load `meta.json` to get `google_doc_id` and `google_sheet_id`
+2. If doc exists, delete and recreate (or use `gog docs update` if available)
+3. If sheet exists, clear and repopulate with updated CSV data
+4. Show the user the updated URLs
 
 ---
 
@@ -270,7 +405,8 @@ When invoked with `--resume`:
 1. Load `meta.json` from the session directory
 2. Set `BEADS_DIR`
 3. Run `bd list --json` to see current state
-4. Tell the user:
+4. Count open vs closed beads to determine which phase to resume
+5. Tell the user:
 ```
 Resuming: "<goal>"
 Status: 23/42 beads resolved, 15 remaining
@@ -278,7 +414,7 @@ Last active: 2 hours ago
 
 "continue" | "summary" | "steer" | "report"
 ```
-5. Based on choice, jump to the appropriate phase
+6. Based on choice, jump to the appropriate phase
 
 ---
 
@@ -299,14 +435,12 @@ When the user types during research:
 - "also check Z" → Create new beads for Z within budget
 - Show the user what changed: "Rejected 4 beads, created 3 new beads, reprioritized 2"
 
-**Questions:**
-- "what have you found about X?" → Find relevant resolved beads, synthesize their findings with source URLs
-
 ---
 
 ## Error Recovery
 
-- **Beads CLI error:** Check BEADS_DIR is set. Retry once. If persistent, tell user.
-- **Researcher returns no source:** Re-open bead, retry with different search terms.
-- **Researcher returns hallucinated URL (verification catches it):** Drop claim, re-research.
+- **Beads CLI error:** Check BEADS_DIR is set. Run `bd --version`. If broken, tell user to reinstall. Do NOT continue with broken beads.
+- **Researcher returns no source:** Re-open bead with different search terms. If retry also fails, note the gap.
+- **Researcher returns hallucinated URL (validation catches it):** Drop claim, create re-research bead.
+- **Source returns 403/404:** Researcher should retry with alternative search. If persistent, note as SOURCE_DEAD.
 - **User wants to stop:** ALWAYS respect immediately. Save state. Offer partial report.
