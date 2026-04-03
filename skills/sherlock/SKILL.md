@@ -106,11 +106,35 @@ mkdir -p "$HOME/.sherlock/sessions"
 
 ### 0e. Load Configuration
 
-**This step is mandatory.** Read `~/.sherlock/config.yaml` and extract these values. They override ALL hardcoded defaults in the protocol:
+**This step is mandatory.** Read `~/.sherlock/config.yaml`. If it doesn't exist, create the default config first:
 
 ```bash
-cat "$HOME/.sherlock/config.yaml" 2>/dev/null || echo "CONFIG_NOT_FOUND"
+if [ ! -f "$HOME/.sherlock/config.yaml" ]; then
+  mkdir -p "$HOME/.sherlock"
+  cat > "$HOME/.sherlock/config.yaml" << 'YAML'
+# Sherlock V2 Configuration
+defaults:
+  researcher_count: 4       # parallel subagents per batch
+  bead_budget: 50            # max research questions
+  depth_limit: 4             # max decomposition depth
+  validation_mode: full      # "full" = validate every claim, "spot-check" = 5-10 critical
+
+models:
+  conductor: opus
+  researcher: haiku          # haiku | sonnet | opus (WARNING: opus is 20-50x more expensive)
+
+google:
+  account: ""
+  auto_push: false
+  export_format: docs
+YAML
+  echo "Created default config at ~/.sherlock/config.yaml"
+fi
+
+cat "$HOME/.sherlock/config.yaml"
 ```
+
+Extract and apply these session variables. They override ALL hardcoded defaults:
 
 Extract and apply these session variables:
 
@@ -132,7 +156,7 @@ If `RESEARCHER_MODEL` is `opus`, warn the user:
   Continue? [y/n]
 ```
 
-If `CONFIG_NOT_FOUND`, use defaults and continue.
+The config file is always created if missing, so `CONFIG_NOT_FOUND` should never occur.
 
 ---
 
