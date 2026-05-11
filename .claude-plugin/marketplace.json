@@ -8,10 +8,7 @@
     {
       "name": "sherlock",
       "description": "Deep research agent — parallel research with beads, verified citations, cited reports",
-      "source": {
-        "source": "github",
-        "repo": "trilogy-group/cc-skills-sherlock"
-      },
+      "source": "./",
       "homepage": "https://github.com/trilogy-group/cc-skills-sherlock"
     }
   ]
